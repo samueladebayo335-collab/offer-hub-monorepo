@@ -55,6 +55,31 @@ REFUNDED  RELEASED
 | `CLOSED` | Order completed after resolution |
 
 ## Opening a Dispute
+### Dispute Resolution Sequence
+
+```mermaid
+sequenceDiagram
+    accTitle: Dispute open and resolve
+    accDescr: Buyer opens dispute, escrow frozen, platform reviews, resolves on-chain with release or refund.
+    autonumber
+    participant Buyer
+    participant Orchestrator
+    participant Support as Platform Support
+    participant TW as Trustless Work Contract
+    Buyer->>Orchestrator: POST /orders/&#123;id&#125;/resolution/dispute
+    Orchestrator->>TW: disputeEscrow (buyer signs)
+    Orchestrator-->>Buyer: 200 DISPUTED
+    Support->>Orchestrator: GET /disputes/&#123;id&#125;
+    alt FULL_RELEASE
+        Support->>Orchestrator: POST /disputes/&#123;id&#125;/resolve
+        Orchestrator->>TW: resolveDispute(100% seller)
+    else FULL_REFUND
+        Support->>Orchestrator: POST /disputes/&#123;id&#125;/resolve
+        Orchestrator->>TW: resolveDispute(100% buyer)
+    end
+    Orchestrator-->>Buyer: SSE order.released or order.refunded
+`
+```
 
 Only the buyer can initiate a dispute on an `IN_PROGRESS` order:
 
@@ -377,16 +402,19 @@ The `order.disputed` event payload looks like this:
 
 ```json
 {
-  "id": "evt_abc123",
-  "type": "escrow.disputed",
-  "created_at": "2026-02-25T10:00:00.000Z",
-  "data": {
-    "escrow_id": "esc_xyz789",
-    "dispute_id": "dsp_abc123",
-    "opened_by": "BUYER",
+  "eventId": "evt_abc123",
+  "eventType": "order.disputed",
+  "occurredAt": "2026-02-25T10:00:00.000Z",
+  "aggregateId": "ord_xyz789",
+  "aggregateType": "Order",
+  "payload": {
+    "orderId": "ord_xyz789",
+    "disputeId": "dsp_abc123",
+    "openedBy": "BUYER",
     "reason": "NOT_DELIVERED",
-    "order_id": "ord_xyz789"
-  }
+    "openedAt": "2026-02-25T10:00:00.000Z"
+  },
+  "metadata": {}
 }
 ```
 
